@@ -1,0 +1,36 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #f5f6fa; color: #202938; font-family: Arial, sans-serif; font-size: 16px; line-height: 1.5; }
+.container { max-width: 1050px; margin: 48px auto; padding: 0 20px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.eyebrow { margin: 0 0 5px; color: #647084; font-size: 12px; letter-spacing: 1px; }
+h1 { margin: 0; font-size: 30px; }
+a { color: #2458ba; }
+.button, button { display: inline-block; border: 0; border-radius: 6px; padding: 10px 16px; background: #2458ba; color: white; font: inherit; text-decoration: none; cursor: pointer; }
+.button:hover, button:hover { background: #1b4491; }
+.card { background: white; border: 1px solid #dce1e9; border-radius: 8px; }
+.table-wrapper { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; text-align: left; }
+th, td { padding: 15px 18px; border-bottom: 1px solid #e6e9ef; }
+th { background: #eef1f6; font-size: 14px; }
+td { overflow-wrap: anywhere; }
+tr:last-child td { border-bottom: 0; }
+.empty { padding: 40px 20px; text-align: center; color: #647084; }
+.actions { display: flex; align-items: center; gap: 16px; }
+.actions form { margin: 0; }
+.delete { background: #fff0f0; color: #b02525; padding: 6px 10px; }
+.delete:hover { background: #ffe0e0; }
+.student-form { max-width: 620px; padding: 28px; }
+label { display: block; margin-bottom: 6px; font-weight: bold; }
+input:not([type="hidden"]) { display: block; width: 100%; margin-bottom: 20px; padding: 11px 12px; border: 1px solid #b7c0ce; border-radius: 5px; font: inherit; }
+input:focus { outline: 2px solid #2458ba; outline-offset: 2px; }
+.form-actions { margin-top: 8px; }
+.notice { padding: 12px 16px; border-radius: 6px; }
+.error { background: #fff0ed; color: #923b2c; }
+.success { background: #e8f5ec; color: #236638; }
+@media (max-width: 600px) {
+    .container { margin: 24px auto; padding: 0 12px; }
+    header { align-items: flex-start; flex-direction: column; gap: 14px; }
+    h1 { font-size: 26px; }
+    .student-form { padding: 20px; }
+    table { min-width: 650px; }
+}
