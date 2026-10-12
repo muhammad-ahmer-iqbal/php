@@ -17,7 +17,10 @@ if (empty($_SESSION['csrf_token'])) {
 // Escape user-entered text before displaying it inside HTML.
 function escape($value)
 {
-    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+    $data = (string) $value;
+    $data = trim($data);
+    $data = stripslashes($data);
+    return htmlspecialchars($data, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
 // Compare the form's hidden token with the one saved in the session.
