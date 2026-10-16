@@ -1,7 +1,29 @@
 <?php
-// Load this file before HTML so sessions, cookies, and redirects can work.
-// PHP stores session data on the server. The browser keeps a session ID cookie.
+// Run this before any HTML. 30 days expressed in seconds.
+$cookieLifetime = 30 * 24 * 60 * 60;
+
+// Keep the server's session data for as long as the browser cookie.
+ini_set('session.gc_maxlifetime', (string) $cookieLifetime);
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+
+// PHP creates the session cookie for us; these are its settings.
+session_set_cookie_params([
+    'lifetime' => $cookieLifetime, // Keep the cookie after the browser closes.
+    'path' => '/', // Send it to pages on this website.
+    'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true, // JavaScript cannot read this cookie.
+    'samesite' => 'Lax', // Limit when other websites can send it.
+]);
+
+// With a session cookie, PHP loads the matching $_SESSION data.
+// Without one, PHP creates a new session and sends its ID in a cookie.
 session_start();
+
+// Registered users and password hashes remain in the server-side session.
+if (!isset($_SESSION['users'])) {
+    $_SESSION['users'] = [];
+}
 
 // Our student array replaces the database. It lasts only for this session.
 if (!isset($_SESSION['students'])) {

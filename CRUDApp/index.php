@@ -26,6 +26,18 @@ unset($_SESSION['message']);
         <a class="button" href="create.php">Add student</a>
     </header>
 
+    <nav class="actions" aria-label="User account">
+        <?php if (!empty($_SESSION['logged_in_username'])): ?>
+            <span>Logged in as <?= escape($_SESSION['logged_in_username']) ?></span>
+            <form method="post" action="logout.php">
+                <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                <button type="submit">Log out</button>
+            </form>
+        <?php else: ?>
+            <a href="register.php">Create account</a>
+            <a href="login.php">Log in</a>
+        <?php endif; ?>
+    </nav>
     <p>Students are saved only in your current session. No database is needed.</p>
     <?php if ($message): ?>
         <p class="notice success" role="status"><?= escape($message) ?></p>
