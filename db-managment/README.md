@@ -1,12 +1,12 @@
 # Core PHP registration and login practice
 
-A small learning project using Core PHP, MySQL, object-oriented MySQLi, and basic HTML/CSS. The connection uses `new mysqli()`, and queries use the connection object's `query()` method.
+A small learning project using Core PHP, MySQL, object-oriented MySQLi, and basic HTML/CSS. The connection uses `new mysqli()`. Login and registration use prepared statements with bound parameters.
 
-This simplified version uses **direct SQL queries** and PHP sessions for login. It has no custom cookie-handling code: PHP automatically manages its standard session ID cookie. It intentionally does not protect against SQL injection and is for local practice.
+This version uses PHP sessions for login. It has no custom cookie-handling code: PHP automatically manages its standard session ID cookie. Login and registration keep input values separate from SQL instructions through parameter binding to prevent SQL injection in their queries. This remains a beginner learning project.
 
 ## 1. Requirements
 
-- PHP 8.2 or newer with the `mysqli` extension enabled.
+- PHP 8.2 or newer with the `mysqli` extension and `mysqlnd` driver enabled. The `get_result()` method used by login and registration requires mysqlnd; XAMPP includes it.
 - MySQL, or the MariaDB bundled with XAMPP.
 - A browser.
 
@@ -55,7 +55,7 @@ $dbname = 'php_learning';
 
 These are common local XAMPP defaults. Set the password to match your installation, and do not publish real credentials. If MySQL uses a different port, pass it as the fifth argument to `new mysqli()`.
 
-`new mysqli($servername, $username, $dbPassword, $dbname)` creates a connection object and selects the existing database. `$dbPassword` is named separately so including this file cannot overwrite the user's submitted `$password`. The object is stored in `$conn`, and `$conn->query()` runs SQL queries. `$conn->set_charset('utf8mb4')` enables Unicode text. PHP 8.2 throws database exceptions by default, so a simple `try/catch` handles connection failures without exposing database details. Import `database.sql` first; normal page requests do not create the database.
+`new mysqli($servername, $username, $dbPassword, $dbname)` creates a connection object and selects the existing database. `$dbPassword` is named separately so including this file cannot overwrite the user's submitted `$password`. The object is stored in `$conn`, and `$conn->prepare()` creates prepared SQL statements. `$conn->set_charset('utf8mb4')` enables Unicode text. PHP 8.2 throws database exceptions by default, so a simple `try/catch` handles connection failures without exposing database details. Import `database.sql` first; normal page requests do not create the database.
 
 ## 4. Run locally
 
@@ -79,8 +79,8 @@ Keep PHP's `session.auto_start` setting disabled (its normal default). The share
 
 ## 5. Registration → login → dashboard → logout
 
-1. **Register:** `register.php` validates the CSRF token, required fields, email format, input lengths, and password confirmation. A direct `SELECT` checks whether the email exists. `password_hash()` creates a bcrypt hash, and a direct `INSERT` saves the account. Registration saves a one-time success message in the session and redirects to `login.php`.
-2. **Log in:** `login.php` validates the CSRF token and fetches a matching user with a direct `SELECT`. `password_verify()` compares the submitted password with the stored hash. On success, PHP regenerates the session ID, stores the user ID and name in `$_SESSION`, refreshes the CSRF token, and redirects to `dashboard.php`.
+1. **Register:** `register.php` validates the CSRF token, required fields, email format, input lengths, and password confirmation. A prepared `SELECT` with a bound email checks whether the email exists. `password_hash()` creates a bcrypt hash, and a prepared `INSERT` binds the name, email, and hash to save the account. Registration saves a one-time success message in the session and redirects to `login.php`.
+2. **Log in:** `login.php` validates the CSRF token and fetches a matching user with a prepared `SELECT`, binding the email with `bind_param()`. `password_verify()` compares the submitted password with the stored hash. On success, PHP regenerates the session ID, stores the user ID and name in `$_SESSION`, refreshes the CSRF token, and redirects to `dashboard.php`.
 3. **Dashboard:** the dashboard checks `$_SESSION['user_id']` before displaying the escaped name. Without a login session, it redirects to login. Refreshing the dashboard or opening it in another tab in the same browser keeps the user logged in while the session remains active. Logged-in users visiting login or registration are redirected to the dashboard.
 4. **Log out:** the button posts to `logout.php`. After checking the CSRF token, PHP clears `$_SESSION`, calls `session_destroy()` to delete the server-side session, and redirects to login. The old session can no longer authorize dashboard access.
 
@@ -94,23 +94,36 @@ Password hashing remains enabled. Hashing is one-way: the password is not decryp
 
 Passwords must contain 8–72 bytes; bcrypt only uses the first 72 bytes, so longer passwords are rejected. Names are limited to 100 bytes and emails to 254 bytes. Some Unicode characters use multiple bytes. Passwords are not trimmed or redisplayed. Emails are trimmed and lowercased consistently.
 
-## 6. How direct queries work
+## 6. How parameter binding works
 
 ```php
-$sql = "SELECT id, name, password FROM users WHERE email = '$email' LIMIT 1";
-$result = $conn->query($sql);
+$stmt = $conn->prepare('SELECT id, name, password FROM users WHERE email = ? LIMIT 1');
+$stmt->bind_param('s', $email);
+$stmt->execute();
+$result = $stmt->get_result();
 $user = $result->fetch_assoc();
+$stmt->close();
 ```
 
-- PHP inserts the value of `$email` into the SQL string.
-- `$conn->query($sql)` sends that string to MySQL. For a `SELECT`, it returns a result object.
+- `prepare()` defines the SQL structure. The `?` marks where an email value belongs.
+- `bind_param('s', $email)` binds one string variable to the placeholder. Values are supplied separately from the SQL instructions.
+- `execute()` runs the prepared statement using the bound value.
+- `get_result()` returns the rows from the `SELECT` as a result object.
 - `$result->fetch_assoc()` reads one row as an associative array, or returns `null` if no row matches.
-- `$result->num_rows` gives the number of returned rows.
-- For an `INSERT`, `query()` returns `true` on success. With the default MySQLi settings in PHP 8.2+, a failed query throws an exception.
+- `$stmt->close()` releases the statement after reading its result; it does not close the database connection.
 
-There are no `prepare()`, `bind_param()`, `execute()`, or `get_result()` calls in the application.
+The database treats the bound email as data, even if it contains quotes or SQL-looking text. It cannot change the query's SQL structure. The password is checked separately with `password_verify()`, not compared as plain text in SQL.
 
-Because user input becomes part of the SQL text, quotes can break the query or change its meaning. Even an ordinary name such as `O'Connor` can cause registration to fail. Input validation, password hashing, and `htmlspecialchars()` do not fix this. Prepared statements prevent SQL injection by keeping input values separate from SQL instructions; this version deliberately omits them.
+Registration uses the same approach for its email check. To create an account, it binds three strings:
+
+```php
+$stmt = $conn->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+$stmt->bind_param('sss', $name, $email, $passwordHash);
+$stmt->execute();
+$stmt->close();
+```
+
+Each `s` represents a string, in placeholder order. Bind the password hash, never the plain-text password. An `INSERT` does not return rows, so it does not need `get_result()`. Names containing apostrophes, such as `O'Connor`, are passed as data without breaking the SQL. HTML escaping with `htmlspecialchars()` is still a separate concern when displaying input in a page.
 
 ## 7. Files and CRUD
 
@@ -120,8 +133,8 @@ Because user input becomes part of the SQL text, quotes can break the query or c
 | `db.php` | Open the MySQLi connection |
 | `session.php` | Start sessions and share CSRF validation |
 | `index.php` | Redirect based on login state |
-| `register.php` | Validate input, check email, hash password, insert user |
-| `login.php` | Fetch user, verify password, save login in the session |
+| `register.php` | Validate input, check email and insert user with bound parameters, hash password |
+| `login.php` | Bind email in a prepared query, verify password, save login in the session |
 | `dashboard.php` | Check the login session and display the name |
 | `logout.php` | Destroy the session and return to login |
 | `style.css` | Style the forms |

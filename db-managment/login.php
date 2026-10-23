@@ -36,10 +36,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require __DIR__ . '/db.php';
 
         try {
-            // query() runs the SQL string directly. This example is not injection-proof.
-            $sql = "SELECT id, name, password FROM users WHERE email = '$email' LIMIT 1";
-            $result = $conn->query($sql);
+            // prepare() creates an SQL template; ? is a placeholder for the email.
+            $stmt = $conn->prepare('SELECT id, name, password FROM users WHERE email = ? LIMIT 1');
+            // bind_param() supplies the email separately from SQL. "s" means a string.
+            $stmt->bind_param('s', $email);
+            // execute() runs the statement using the bound email value.
+            $stmt->execute();
+            // get_result() returns the SELECT rows (requires PHP's mysqlnd driver).
+            $result = $stmt->get_result();
             $user = $result->fetch_assoc(); // Read one row as an array, or null if none exists.
+            $stmt->close(); // Release the statement after reading its result.
 
             // password_verify() compares the entered password with the stored hash.
             // It reads the salt and hashing settings from the hash; no decryption is needed.

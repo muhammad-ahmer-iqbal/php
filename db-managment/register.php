@@ -45,11 +45,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require __DIR__ . '/db.php';
 
         try {
-            // query() sends an SQL string directly to MySQL and returns SELECT rows.
-            // Input is inserted directly into SQL here, so this is vulnerable to SQL injection.
-            $sql = "SELECT id FROM users WHERE email = '$email' LIMIT 1";
-            $result = $conn->query($sql);
+            // prepare() creates an SQL template; ? is a placeholder for the email.
+            $stmt = $conn->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+            // bind_param() supplies data separately from SQL. "s" means one string.
+            $stmt->bind_param('s', $email);
+            // execute() runs the statement with the bound email value.
+            $stmt->execute();
+            // get_result() returns the SELECT rows (requires PHP's mysqlnd driver).
+            $result = $stmt->get_result();
             $emailExists = $result->num_rows > 0;
+            $stmt->close(); // Release the statement after checking its result.
 
             if ($emailExists) {
                 $errors[] = 'An account with that email already exists.';
@@ -58,9 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Store this hash, never the original password.
                 $passwordHash = password_hash($password, PASSWORD_BCRYPT);
 
-                // INSERT creates a new row. query() returns true when it succeeds.
-                $sql = "INSERT INTO users (name, email, password) VALUES ('$name', '$email', '$passwordHash')";
-                $conn->query($sql);
+                // Use a placeholder for each value to keep user input separate from SQL.
+                $stmt = $conn->prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)');
+                // "sss" binds three strings in order: name, email, and password hash.
+                $stmt->bind_param('sss', $name, $email, $passwordHash);
+                $stmt->execute(); // Save the new user. INSERT does not need get_result().
+                $stmt->close();
 
                 // The session carries this one-time message across the redirect.
                 $_SESSION['success_message'] = 'Registration successful! You can now log in.';
